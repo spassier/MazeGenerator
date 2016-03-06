@@ -1,7 +1,6 @@
 package com.roguebot.mazegenerator;
 
-import java.awt.Dimension;
-import java.awt.Rectangle;
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -10,7 +9,7 @@ import java.util.Random;
  */
 public class Maze
 {
-    private final Dimension dimension;
+    private final Dimension bounds;
     private final int maxRoomSize;
     private final int minRoomSize;
     private final int numRoomPositioningTries;
@@ -19,7 +18,7 @@ public class Maze
 
 
     private Maze(MazeBuilder builder) {
-        this.dimension = builder.dimension;
+        this.bounds = builder.bounds;
         this.maxRoomSize = builder.maxRoomSize;
         this.minRoomSize = builder.minRoomSize;
         this.numRoomPositioningTries = builder.numRoomPositioningTries;
@@ -32,6 +31,7 @@ public class Maze
         // 1 - garantir que les tailles des rooms est impaire (width et height)
         // 2 - aligné les positions des rooms uniquement sur des position impaires (row et col)
 
+        addRooms();
     }
 
     private void addRooms() {
@@ -41,7 +41,7 @@ public class Maze
             int width = rand.nextInt(maxRoomSize - minRoomSize + 1) + minRoomSize;
             int height = rand.nextInt(maxRoomSize - minRoomSize + 1) + minRoomSize;
 
-            // Pour ajouter de l'aléatoire dans le redimentionnement de la largeur ou de la longueure dont la valeur est paire
+            // Pour ajouter de l'aléatoire dans le redimentionnement de la largeur ou de la longueure lorsque la valeur est paire
             int lessOrMore;
             if ( rand.nextInt(1) == 0 ) {
                 lessOrMore = 1;
@@ -66,8 +66,17 @@ public class Maze
                 }
             }
 
-            // Traitement de l'insertion de la room
+            int x = rand.nextInt((bounds.width - width) / 2) * 2 + 1;
+            int y = rand.nextInt((bounds.height - height) / 2) * 2 + 1;
+
+            Rectangle room = new Rectangle(x, y, width, height);
             
+
+            //System.out.printf("room : w=%d / h=%d %n", width, height);
+
+            // Traitement de l'insertion de la room
+
+
 
         }
     }
@@ -84,7 +93,7 @@ public class Maze
      */
     public static class MazeBuilder
     {
-        private Dimension dimension;
+        private Dimension bounds;
         private int maxRoomSize = 11;
         private int minRoomSize = 3;
         private int numRoomPositioningTries = 100;
@@ -96,12 +105,23 @@ public class Maze
             return new Maze(this);
         }
 
-        public MazeBuilder dimension(Dimension dimension) {
-            if ( dimension.getWidth() % 2 == 0 || dimension.getHeight() % 2 == 0 ) {
+        public MazeBuilder bounds(Dimension bounds) {
+            if ( bounds.getWidth() % 2 == 0 || bounds.getHeight() % 2 == 0 ) {
                 throw new IllegalArgumentException("Odd values only");
             }
 
-            this.dimension = dimension;
+            this.bounds = bounds;
+
+            return this;
+        }
+
+        public MazeBuilder bounds(int width, int height) {
+            if ( width % 2 == 0 || height % 2 == 0 ) {
+                throw new IllegalArgumentException("Odd values only");
+            }
+
+            this.bounds.width = width;
+            this.bounds.height = height;
 
             return this;
         }
