@@ -5,7 +5,7 @@ package com.roguebot.common;
  */
 public class Array2D
 {
-    private int[][] data;
+    private int[][] data; // [row][col]
     private int width;
     private int height;
 
@@ -54,9 +54,7 @@ public class Array2D
      * @param col
      * @param value
      */
-    public void setCell(int row, int col, int value) {
-        data[row][col] = value;
-    }
+    public void setCell(int row, int col, int value) { data[row][col] = value; }
 
     /**
      *
@@ -79,8 +77,8 @@ public class Array2D
      * @param value
      */
     private void fill(int value) {
-        for ( int row = 0; row < width; row++ ) {
-            for ( int col = 0; col < height; col++ ) {
+        for ( int row = 0; row < height; row++ ) {
+            for ( int col = 0; col < width; col++ ) {
                 data[row][col] = value;
             }
         }

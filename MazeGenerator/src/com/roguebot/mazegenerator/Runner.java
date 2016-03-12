@@ -11,5 +11,6 @@ public class Runner
     {
         Maze maze = new Maze.MazeBuilder().bounds(new Dimension(63,63)).build();
         maze.generate();
+        maze.printAscii();
     }
 }

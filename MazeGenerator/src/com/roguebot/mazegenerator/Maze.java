@@ -1,5 +1,7 @@
 package com.roguebot.mazegenerator;
 
+import com.roguebot.common.Array2D;
+
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.Random;
@@ -15,29 +17,50 @@ public class Maze
     private final int numRoomPositioningTries;
 
     private ArrayList<Rectangle> rooms;
+    private Array2D regions;
 
+    private int regionID;
 
     private Maze(MazeBuilder builder) {
         this.bounds = builder.bounds;
         this.maxRoomSize = builder.maxRoomSize;
         this.minRoomSize = builder.minRoomSize;
         this.numRoomPositioningTries = builder.numRoomPositioningTries;
+
+        this.rooms = new ArrayList<Rectangle>();
+        this.regions = new Array2D(this.bounds.width, this.bounds.height);
     }
 
+    /**
+     *
+     */
     void generate() {
-
-        // Ajouter des pieces
-        // L'objectif est double:
-        // 1 - garantir que les tailles des rooms est impaire (width et height)
-        // 2 - aligné les positions des rooms uniquement sur des position impaires (row et col)
-
         addRooms();
     }
 
-    private void addRooms() {
-        for ( int iteration = 0; iteration < numRoomPositioningTries; iteration++ ) {
-            Random rand = new Random();
+    void printAscii() {
+        for ( int row = 0; row < bounds.height; row++ ) {
+            for ( int col = 0; col < bounds.width; col++) {
+                if ( regions.getCell(row, col) == 0 ) {
+                    System.out.printf("#");
+                } else {
+                    System.out.printf(" ");
+                }
+            }
+            System.out.printf("\n");
+        }
+    }
 
+    /**
+     * Ajouter des rooms
+     * L'objectifs est double:
+     *      1 - Garantir que les tailles des rooms est impaire (width et height)
+     *      2 - Aligner les positions des rooms uniquement sur des position impaires (row et col)
+     */
+    private void addRooms() {
+        Random rand = new Random();
+
+        for ( int iteration = 0; iteration < numRoomPositioningTries; iteration++ ) {
             int width = rand.nextInt(maxRoomSize - minRoomSize + 1) + minRoomSize;
             int height = rand.nextInt(maxRoomSize - minRoomSize + 1) + minRoomSize;
 
@@ -70,22 +93,31 @@ public class Maze
             int y = rand.nextInt((bounds.height - height) / 2) * 2 + 1;
 
             Rectangle room = new Rectangle(x, y, width, height);
-            
-
-            //System.out.printf("room : w=%d / h=%d %n", width, height);
 
             // Traitement de l'insertion de la room
+            Rectangle bounds = new Rectangle(room.x - 1, room.y - 1, room.width + 1, room.height + 1);
+            boolean intersects = false;
+            for ( Rectangle item : rooms ) {
+                if ( item.intersects(bounds) ) {
+                    intersects = true;
+                    break;
+                }
+            }
 
+            if ( intersects ) continue;
 
+            rooms.add(room);
 
+            System.out.printf(room.toString() + "\n");
+
+            // Créer une nouvelle region
+            regionID++;
+            for ( int row = room.y; row < room.y + room.height; row++ ) {
+                for ( int col = room.x; col < room.x + room.width; col++) {
+                    regions.setCell(row, col, regionID);
+                }
+            }
         }
-    }
-
-    private boolean roomIntersects(Rectangle roomInserted, Rectangle roomToInsert) {
-        boolean result = false;
-
-
-        return result;
     }
 
     /**
