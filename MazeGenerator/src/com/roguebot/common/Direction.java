@@ -18,13 +18,15 @@ public enum Direction
     public int x;
     public int y;
 
+    public static Direction[] CARDINAL = {N, E, W, S};
+
+    /**
+     * Constructeur
+     * @param x Direction sur x
+     * @param y Direction sur y
+     */
     Direction(int x, int y) {
         this.x = x;
         this.y = y;
-    }
-
-    static public Direction[] CARDINAL() {
-        Direction[] cardinal = {N, E, W, S};
-        return cardinal;
     }
 }

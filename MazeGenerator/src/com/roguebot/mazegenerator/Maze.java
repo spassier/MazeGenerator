@@ -36,7 +36,7 @@ public class Maze
     }
 
     /**
-     *
+     * Générer le maze
      */
     void generate() {
         addRooms();
@@ -44,9 +44,10 @@ public class Maze
     }
 
     /**
-     *
+     * Afficher en ascii le resultat
      */
     void printAscii() {
+        System.out.printf("\n");
         for ( int row = 0; row < bounds.height; row++ ) {
             for ( int col = 0; col < bounds.width; col++) {
                 if ( regions.getCell(row, col) == 0 ) {
@@ -57,6 +58,7 @@ public class Maze
             }
             System.out.printf("\n");
         }
+        System.out.printf("\n");
     }
 
     /**
@@ -143,22 +145,24 @@ public class Maze
     }
 
     /**
-     * Ajouter des corridors dans les espaces restant du dungeon
+     * Ajouter des corridors dans les espaces restants
+     * Implementation de l'algorithmes "flood fill" src: http://www.astrolog.org/labyrnth/algrithm.htm
      */
     private void addCorridors() {
         for ( int row = 1; row < bounds.height; row += 2) {
             for ( int col = 1; col < bounds.width; col += 2) {
-                if ( regions.getCell(row, col) == 0 ) continue;
-
-                carveCorridor(col, row);
+                if ( regions.getCell(row, col) == 0 ) {
+                    carveCorridor(col, row);
+                }
             }
         }
     }
 
     /**
-     *
-     * @param x
-     * @param y
+     * Creuser des corridors dans les zones restantes entres les rooms
+     * Implementation des algorithmes "growing tree" src: http://www.astrolog.org/labyrnth/algrithm.htm
+     * @param x Position x de départ
+     * @param y Posiiton y de départ
      */
     private void carveCorridor(int x, int y) {
         Stack<Point> cells = new Stack<Point>();
@@ -175,7 +179,7 @@ public class Maze
 
             // Determine toutes les directions possible au creusement
             Stack<Direction> possibleCells = new Stack<Direction>();
-            for (Direction direction : Direction.CARDINAL()) {
+            for ( Direction direction : Direction.CARDINAL ) {
                 if ( canCarve(cell.x, cell.y, direction) ) {
                     possibleCells.push(direction);
                 }
@@ -184,7 +188,7 @@ public class Maze
             if ( !possibleCells.isEmpty() ) {
                 Direction direction;
 
-                // 
+                // On préférer creuser dans la même direction mais elle reste pondérée par une variable aléatoire de customisation
                 if ( possibleCells.contains(lastDirection) && corridorStraightness > rand.nextInt(100) ) {
                     direction = lastDirection;
                 } else {
@@ -192,75 +196,37 @@ public class Maze
                 }
 
                 // Le creusement se fait par pas de 2 pour garantir un espace entre les corridors
-                regions.setCell(y + direction.y, x + direction.x, regionID);
-                regions.setCell(y + direction.y * 2, x + direction.x * 2, regionID);
+                regions.setCell(cell.y + direction.y, cell.x + direction.x, regionID);
+                regions.setCell(cell.y + direction.y * 2, cell.x + direction.x * 2, regionID);
 
-                cells.push(new Point(x + direction.x * 2, y + direction.y * 2));
+                // Le choix de la futur direction est faite depuis le "bout du corridor" c'est pourquoi la cell intermédiare n'est pas ajoutée dans la pile
+                cells.push(new Point(cell.x + direction.x * 2, cell.y + direction.y * 2));
                 lastDirection = direction;
             } else {
                 cells.pop();
                 lastDirection = Direction.NONE;
             }
         }
-        /*
-        var cells = <Vec>[];
-        var lastDir;
-
-        _startRegion();
-        _carve(start);
-
-        cells.add(start);
-        while (cells.isNotEmpty) {
-            var cell = cells.last;
-
-            // See which adjacent cells are open.
-            var unmadeCells = <Direction>[];
-
-            for (var dir in Direction.CARDINAL) {
-                if (_canCarve(cell, dir)) unmadeCells.add(dir);
-            }
-
-            if (unmadeCells.isNotEmpty) {
-                // Based on how "windy" passages are, try to prefer carving in the
-                // same direction.
-                var dir;
-                if (unmadeCells.contains(lastDir) && rng.range(100) > windingPercent) {
-                    dir = lastDir;
-                } else {
-                    dir = rng.item(unmadeCells);
-                }
-
-                _carve(cell + dir);
-                _carve(cell + dir * 2);
-
-                cells.add(cell + dir * 2);
-                lastDir = dir;
-            } else {
-                // No adjacent uncarved cells.
-                cells.removeLast();
-
-                // This path has ended.
-                lastDir = null;
-            }
-        }
-        */
     }
 
     /**
-     *
-     * @param x
-     * @param y
-     * @param direction
+     * Determine si un corridor peut être creusé depuis une cell à une position (x,y) vers une cell adjacent selon une direction
+     * Le creusement se fait par pas de 2 cell pour garantir un espace entre les corridors
+     * @param x Position x du corridor
+     * @param y Position y du corridor
+     * @param direction Direction du creusement souhaité
      */
     private boolean canCarve(int x, int y, Direction direction) {
         boolean result = false;
-        int xDirection = x + direction.x;
-        int yDirection = y + direction.y;
+        int xDirection = x + direction.x * 3;
+        int yDirection = y + direction.y * 3;
 
         // La destination doit être dans le périmétre
-        if ( xDirection > 0 && xDirection < bounds.width && yDirection > 0 && xDirection < bounds.height ) {
+        if ( xDirection > 0 && xDirection < bounds.width && yDirection > 0 && yDirection < bounds.height ) {
+            xDirection = x + direction.x * 2;
+            yDirection = y + direction.y * 2;
             // La destination doit être pleine
-            if ( regions.getCell(xDirection , yDirection ) == 0 ) {
+            if ( regions.getCell(yDirection , xDirection ) == 0 ) {
                 result = true;
             }
         }
@@ -269,7 +235,7 @@ public class Maze
     }
 
     /**
-     *
+     * Création d'un nouvel ID de région
      */
     private void newRegion() {
         regionID++;
