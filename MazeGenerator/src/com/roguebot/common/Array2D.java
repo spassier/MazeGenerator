@@ -40,21 +40,21 @@ public class Array2D
 
     /**
      *
-     * @param row
      * @param col
+     * @param row
      * @return
      */
-    public int getCell(int row, int col) {
+    public int getCell(int col, int row) {
         return data[row][col];
     }
 
     /**
      *
-     * @param row
      * @param col
+     * @param row
      * @param value
      */
-    public void setCell(int row, int col, int value) { data[row][col] = value; }
+    public void setCell(int col, int row, int value) { data[row][col] = value; }
 
     /**
      *

@@ -50,7 +50,7 @@ public class Maze
         System.out.printf("\n");
         for ( int row = 0; row < bounds.height; row++ ) {
             for ( int col = 0; col < bounds.width; col++) {
-                if ( regions.getCell(row, col) == 0 ) {
+                if ( regions.getCell(col, row) == 0 ) {
                     System.out.printf("#");
                 } else {
                     System.out.printf(" ");
@@ -59,6 +59,20 @@ public class Maze
             System.out.printf("\n");
         }
         System.out.printf("\n");
+    }
+
+    /**
+     * Ajouter des corridors dans les espaces restants
+     * Implementation de l'algorithmes "flood fill" src: http://www.astrolog.org/labyrnth/algrithm.htm
+     */
+    private void addCorridors() {
+        for ( int row = 1; row < bounds.height; row += 2) {
+            for ( int col = 1; col < bounds.width; col += 2) {
+                if ( regions.getCell(col, row) == 0 ) {
+                    carveCorridor(col, row);
+                }
+            }
+        }
     }
 
     /**
@@ -138,21 +152,7 @@ public class Maze
             {
                 for (int col = room.x; col < room.x + room.width; col++)
                 {
-                    regions.setCell(row, col, regionID);
-                }
-            }
-        }
-    }
-
-    /**
-     * Ajouter des corridors dans les espaces restants
-     * Implementation de l'algorithmes "flood fill" src: http://www.astrolog.org/labyrnth/algrithm.htm
-     */
-    private void addCorridors() {
-        for ( int row = 1; row < bounds.height; row += 2) {
-            for ( int col = 1; col < bounds.width; col += 2) {
-                if ( regions.getCell(row, col) == 0 ) {
-                    carveCorridor(col, row);
+                    regions.setCell(col, row, regionID);
                 }
             }
         }
@@ -170,7 +170,7 @@ public class Maze
         Random rand = new Random();
 
         newRegion();
-        regions.setCell(y, x, regionID);
+        regions.setCell(x, y, regionID);
 
         cells.push(new Point(x, y));
 
@@ -196,8 +196,8 @@ public class Maze
                 }
 
                 // Le creusement se fait par pas de 2 pour garantir un espace entre les corridors
-                regions.setCell(cell.y + direction.y, cell.x + direction.x, regionID);
-                regions.setCell(cell.y + direction.y * 2, cell.x + direction.x * 2, regionID);
+                regions.setCell(cell.x + direction.x, cell.y + direction.y, regionID);
+                regions.setCell(cell.x + direction.x * 2, cell.y + direction.y * 2, regionID);
 
                 // Le choix de la futur direction est faite depuis le "bout du corridor" c'est pourquoi la cell intermédiare n'est pas ajoutée dans la pile
                 cells.push(new Point(cell.x + direction.x * 2, cell.y + direction.y * 2));
@@ -226,7 +226,7 @@ public class Maze
             xDirection = x + direction.x * 2;
             yDirection = y + direction.y * 2;
             // La destination doit être pleine
-            if ( regions.getCell(yDirection , xDirection ) == 0 ) {
+            if ( regions.getCell(xDirection , yDirection ) == 0 ) {
                 result = true;
             }
         }
