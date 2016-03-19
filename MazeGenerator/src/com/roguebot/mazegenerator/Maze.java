@@ -4,9 +4,7 @@ import com.roguebot.common.Array2D;
 import com.roguebot.common.Direction;
 
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.Random;
-import java.util.Stack;
+import java.util.*;
 
 /**
  * Created by Sebastien PASSIER on 27/02/2016.
@@ -21,6 +19,7 @@ public class Maze
 
     private ArrayList<Rectangle> rooms;
     private Array2D regions;
+    private Array2D dungeon;
 
     private int regionID;
 
@@ -33,6 +32,7 @@ public class Maze
 
         this.rooms = new ArrayList<Rectangle>();
         this.regions = new Array2D(this.bounds.width, this.bounds.height);
+        this.dungeon = new Array2D(this.bounds.width, this.bounds.height);
     }
 
     /**
@@ -41,6 +41,8 @@ public class Maze
     void generate() {
         addRooms();
         addCorridors();
+        connectRegions();
+
     }
 
     /**
@@ -49,8 +51,8 @@ public class Maze
     void printAscii() {
         System.out.printf("\n");
         for ( int row = 0; row < bounds.height; row++ ) {
-            for ( int col = 0; col < bounds.width; col++) {
-                if ( regions.getCell(col, row) == 0 ) {
+            for ( int col = 0; col < bounds.width; col++ ) {
+                if ( dungeon.getCell(col, row) == 0 ) {
                     System.out.printf("#");
                 } else {
                     System.out.printf(" ");
@@ -66,9 +68,9 @@ public class Maze
      * Implementation de l'algorithmes "flood fill" src: http://www.astrolog.org/labyrnth/algrithm.htm
      */
     private void addCorridors() {
-        for ( int row = 1; row < bounds.height; row += 2) {
-            for ( int col = 1; col < bounds.width; col += 2) {
-                if ( regions.getCell(col, row) == 0 ) {
+        for ( int row = 1; row < bounds.height; row += 2 ) {
+            for ( int col = 1; col < bounds.width; col += 2 ) {
+                if ( dungeon.getCell(col, row) == 0 ) {
                     carveCorridor(col, row);
                 }
             }
@@ -77,48 +79,38 @@ public class Maze
 
     /**
      * Ajouter des rooms disjointes les unes des autres
-     * L'objectifs est double:
+     * L'objectif est double:
      *      1 - Garantir que les tailles des rooms est impaire (width et height)
      *      2 - Aligner les positions des rooms uniquement sur des position impaires (row et col)
      */
-    private void addRooms()
-    {
+    private void addRooms() {
         Random rand = new Random();
 
-        for (int iteration = 0; iteration < numRoomPositioningTries; iteration++)
-        {
+        for ( int iteration = 0; iteration < numRoomPositioningTries; iteration++ ) {
             int width = rand.nextInt(maxRoomSize - minRoomSize + 1) + minRoomSize;
             int height = rand.nextInt(maxRoomSize - minRoomSize + 1) + minRoomSize;
 
             // Pour ajouter de l'aléatoire dans le redimentionnement de la largeur ou de la longueure lorsque la valeur est paire
             int lessOrMore;
-            if (rand.nextInt(1) == 0)
-            {
+            if ( rand.nextInt(1) == 0 ) {
                 lessOrMore = 1;
-            } else
-            {
+            } else {
                 lessOrMore = -1;
             }
 
             // Traitement des cas aux limites du redimentionnement
-            if ((width & 1) == 0)
-            {
-                if ((width + lessOrMore) <= maxRoomSize)
-                {
+            if ( (width & 1) == 0 ) {
+                if ( (width + lessOrMore) <= maxRoomSize ) {
                     width++;
-                } else
-                {
+                } else {
                     width--;
                 }
             }
 
-            if ((height & 1) == 0)
-            {
-                if ((height + lessOrMore) <= maxRoomSize)
-                {
+            if ( (height & 1) == 0 ) {
+                if ( (height + lessOrMore) <= maxRoomSize ) {
                     height++;
-                } else
-                {
+                } else {
                     height--;
                 }
             }
@@ -131,10 +123,8 @@ public class Maze
             // La room est insérée uniquement si elle est disjointe des autres
             Rectangle bounds = new Rectangle(room.x - 1, room.y - 1, room.width + 1, room.height + 1);
             boolean intersects = false;
-            for (Rectangle item : rooms)
-            {
-                if (item.intersects(bounds))
-                {
+            for ( Rectangle item : rooms ) {
+                if ( item.intersects(bounds) ) {
                     intersects = true;
                     break;
                 }
@@ -148,11 +138,10 @@ public class Maze
 
             // Creuse une nouvelle région
             newRegion();
-            for (int row = room.y; row < room.y + room.height; row++)
-            {
-                for (int col = room.x; col < room.x + room.width; col++)
-                {
+            for ( int row = room.y; row < room.y + room.height; row++ ) {
+                for ( int col = room.x; col < room.x + room.width; col++ ) {
                     regions.setCell(col, row, regionID);
+                    dungeon.setCell(col, row, 1);
                 }
             }
         }
@@ -171,6 +160,7 @@ public class Maze
 
         newRegion();
         regions.setCell(x, y, regionID);
+        dungeon.setCell(x, y, 1);
 
         cells.push(new Point(x, y));
 
@@ -198,6 +188,8 @@ public class Maze
                 // Le creusement se fait par pas de 2 pour garantir un espace entre les corridors
                 regions.setCell(cell.x + direction.x, cell.y + direction.y, regionID);
                 regions.setCell(cell.x + direction.x * 2, cell.y + direction.y * 2, regionID);
+                dungeon.setCell(cell.x + direction.x, cell.y + direction.y, regionID);
+                dungeon.setCell(cell.x + direction.x * 2, cell.y + direction.y * 2, regionID);
 
                 // Le choix de la futur direction est faite depuis le "bout du corridor" c'est pourquoi la cell intermédiare n'est pas ajoutée dans la pile
                 cells.push(new Point(cell.x + direction.x * 2, cell.y + direction.y * 2));
@@ -226,7 +218,7 @@ public class Maze
             xDirection = x + direction.x * 2;
             yDirection = y + direction.y * 2;
             // La destination doit être pleine
-            if ( regions.getCell(xDirection , yDirection ) == 0 ) {
+            if ( dungeon.getCell(xDirection , yDirection ) == 0 ) {
                 result = true;
             }
         }
@@ -234,6 +226,35 @@ public class Maze
         return result;
     }
 
+    /**
+     *
+     */
+    private void connectRegions() {
+        HashMap<Point, HashSet> connectorRegions = new HashMap<Point, HashSet>();
+
+        // Recherche les cells candidates à la connexion, c'est à dire :
+        // - de type solide
+        // - adjacente à 2 regions différentes
+        for ( int row = 1; row < bounds.height - 1; row ++ ) {
+            for ( int col = 1; col < bounds.width - 1; col++ ) {
+                if ( dungeon.getCell(col, row) == 0 ) {
+                    HashSet<Integer> connectedRegions = new HashSet<Integer>();
+
+                    for ( Direction direction : Direction.CARDINAL ) {
+                        int regionID = regions.getCell(col + direction.x, row + direction.y);
+                        if ( regionID != 0 ) {
+                            connectedRegions.add(new Integer(regionID));
+                        }
+                    }
+
+                    if ( connectedRegions.size() >= 2 ) {
+                        connectorRegions.put(new Point(col, row), connectedRegions);
+                    }
+                }
+            }
+        }
+
+    }
     /**
      * Création d'un nouvel ID de région
      */
@@ -250,7 +271,7 @@ public class Maze
         private int maxRoomSize = 11;
         private int minRoomSize = 3;
         private int numRoomPositioningTries = 100;
-        private int corridorStraightness = 90;
+        private int corridorStraightness = 50;
 
 
         public MazeBuilder() {}
