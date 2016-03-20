@@ -130,21 +130,47 @@ public class Maze
                 }
             }
 
-            if (intersects) continue;
+            if ( !intersects )
+            {
+                rooms.add(room);
 
-            rooms.add(room);
-
-            //System.out.printf(room.toString() + "\n");
-
-            // Creuse une nouvelle région
-            newRegion();
-            for ( int row = room.y; row < room.y + room.height; row++ ) {
-                for ( int col = room.x; col < room.x + room.width; col++ ) {
-                    regions.setCell(col, row, regionID);
-                    dungeon.setCell(col, row, 1);
+                // Creuse une nouvelle région
+                newRegion();
+                for (int row = room.y; row < room.y + room.height; row++)
+                {
+                    for (int col = room.x; col < room.x + room.width; col++)
+                    {
+                        regions.setCell(col, row, regionID);
+                        dungeon.setCell(col, row, 1);
+                    }
                 }
             }
         }
+    }
+
+    /**
+     * Determine si un corridor peut être creusé depuis une cell à une position (x,y) vers une cell adjacent selon une direction
+     * Le creusement se fait par pas de 2 cell pour garantir un espace entre les corridors
+     * @param x Position x du corridor
+     * @param y Position y du corridor
+     * @param direction Direction du creusement souhaité
+     */
+    private boolean canCarve(int x, int y, Direction direction) {
+        boolean result = false;
+        int xDirection = x + direction.x * 3;
+        int yDirection = y + direction.y * 3;
+
+        // La destination doit être dans le périmétre
+        if ( xDirection > 0 && xDirection < bounds.width && yDirection > 0 && yDirection < bounds.height ) {
+            xDirection = x + direction.x * 2;
+            yDirection = y + direction.y * 2;
+            // La destination doit être pleine
+            if ( dungeon.getCell(xDirection , yDirection ) == 0 ) {
+                result = true;
+            }
+        }
+
+        return result;
     }
 
     /**
@@ -179,7 +205,7 @@ public class Maze
                 Direction direction;
 
                 // On préférer creuser dans la même direction mais elle reste pondérée par une variable aléatoire de customisation
-                if ( possibleCells.contains(lastDirection) && corridorStraightness > rand.nextInt(100) ) {
+                if ( possibleCells.contains(lastDirection) && rand.nextInt(100) < corridorStraightness) {
                     direction = lastDirection;
                 } else {
                     direction = possibleCells.elementAt(rand.nextInt(possibleCells.size()));
@@ -188,8 +214,8 @@ public class Maze
                 // Le creusement se fait par pas de 2 pour garantir un espace entre les corridors
                 regions.setCell(cell.x + direction.x, cell.y + direction.y, regionID);
                 regions.setCell(cell.x + direction.x * 2, cell.y + direction.y * 2, regionID);
-                dungeon.setCell(cell.x + direction.x, cell.y + direction.y, regionID);
-                dungeon.setCell(cell.x + direction.x * 2, cell.y + direction.y * 2, regionID);
+                dungeon.setCell(cell.x + direction.x, cell.y + direction.y, 1);
+                dungeon.setCell(cell.x + direction.x * 2, cell.y + direction.y * 2, 1);
 
                 // Le choix de la futur direction est faite depuis le "bout du corridor" c'est pourquoi la cell intermédiare n'est pas ajoutée dans la pile
                 cells.push(new Point(cell.x + direction.x * 2, cell.y + direction.y * 2));
@@ -202,28 +228,13 @@ public class Maze
     }
 
     /**
-     * Determine si un corridor peut être creusé depuis une cell à une position (x,y) vers une cell adjacent selon une direction
-     * Le creusement se fait par pas de 2 cell pour garantir un espace entre les corridors
-     * @param x Position x du corridor
-     * @param y Position y du corridor
-     * @param direction Direction du creusement souhaité
+     * Creuser une jonction entre 2 regions différentes
+     * @param x Position x de la jonction
+     * @param y Position y de la jonction
      */
-    private boolean canCarve(int x, int y, Direction direction) {
-        boolean result = false;
-        int xDirection = x + direction.x * 3;
-        int yDirection = y + direction.y * 3;
-
-        // La destination doit être dans le périmétre
-        if ( xDirection > 0 && xDirection < bounds.width && yDirection > 0 && yDirection < bounds.height ) {
-            xDirection = x + direction.x * 2;
-            yDirection = y + direction.y * 2;
-            // La destination doit être pleine
-            if ( dungeon.getCell(xDirection , yDirection ) == 0 ) {
-                result = true;
-            }
-        }
-
-        return result;
+    private void carveJunction(int x, int y) {
+        // FIXME: c'est ici qu'on peut introduire des portes (ouvertes ou fermées), pièges, déclencheurs etc
+        dungeon.setCell(x, y, 1);
     }
 
     /**
@@ -232,7 +243,7 @@ public class Maze
     private void connectRegions() {
         HashMap<Point, HashSet> connectorRegions = new HashMap<Point, HashSet>();
 
-        // Recherche les cells candidates à la connexion, c'est à dire :
+        // Identifier les cells candidates à la connexion, c'est à dire :
         // - de type solide
         // - adjacente à 2 regions différentes
         for ( int row = 1; row < bounds.height - 1; row ++ ) {
@@ -252,6 +263,20 @@ public class Maze
                     }
                 }
             }
+        }
+
+        // Initialisation des buffer de track des ID des regions fusionnées et restantes
+        ArrayList<Integer> mergedRegions = new ArrayList<Integer>();
+        HashSet<Integer> remainingRegions = new HashSet<Integer>();
+        for ( int index = 0; index <= regionID; index++ ) {
+            mergedRegions.set(index, new Integer(index));
+            remainingRegions.add(new Integer(index));
+        }
+
+
+        // Connecter et fusionner les regions jusqu'à ce qu'il en reste qu'une seule
+        while ( remainingRegions.size() > 1 ) {
+            
         }
 
     }
