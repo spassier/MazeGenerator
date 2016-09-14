@@ -5,6 +5,7 @@ import com.roguebot.common.Direction;
 
 import java.awt.*;
 import java.util.*;
+import java.util.List;
 
 /**
  * Created by Sebastien PASSIER on 27/02/2016.
@@ -18,10 +19,10 @@ public class Maze
     private final int corridorStraightness;
 
     private ArrayList<Rectangle> rooms;
-    private Array2D regions;
-    private Array2D dungeon;
+    private Array2D regions; // Chaque cell est tagguée par l'id de la region dont la valuer [0, n]
+    private Array2D dungeon; // Chaque cell est tagguée par 0 ou 1 pour indiqué si la celle est pleine ou vide
 
-    private int regionID;
+    private int regionID = 0; // 0 est l'ID des murs (cell pleine)
 
     private Maze(MazeBuilder builder) {
         this.bounds = builder.bounds;
@@ -53,6 +54,21 @@ public class Maze
         for ( int row = 0; row < bounds.height; row++ ) {
             for ( int col = 0; col < bounds.width; col++ ) {
                 if ( dungeon.getCell(col, row) == 0 ) {
+                    System.out.printf("#");
+                } else if ( dungeon.getCell(col, row) == 2 ) {
+                    System.out.printf("+");
+                } else {
+                    System.out.printf(" ");
+                }
+            }
+            System.out.printf("\n");
+        }
+        System.out.printf("\n");
+
+        System.out.printf("\n");
+        for ( int row = 0; row < bounds.height; row++ ) {
+            for ( int col = 0; col < bounds.width; col++ ) {
+                if ( regions.getCell(col, row) == 0 ) {
                     System.out.printf("#");
                 } else {
                     System.out.printf(" ");
@@ -87,6 +103,7 @@ public class Maze
         Random rand = new Random();
 
         for ( int iteration = 0; iteration < numRoomPositioningTries; iteration++ ) {
+            // Calcul de la largeur et de la hauteur de la room
             int width = rand.nextInt(maxRoomSize - minRoomSize + 1) + minRoomSize;
             int height = rand.nextInt(maxRoomSize - minRoomSize + 1) + minRoomSize;
 
@@ -115,6 +132,7 @@ public class Maze
                 }
             }
 
+            // Calcul de la position de la room
             int x = rand.nextInt((bounds.width - width) / 2) * 2 + 1;
             int y = rand.nextInt((bounds.height - height) / 2) * 2 + 1;
 
@@ -241,7 +259,8 @@ public class Maze
      *
      */
     private void connectRegions() {
-        HashMap<Point, HashSet> connectorRegions = new HashMap<Point, HashSet>();
+        HashMap<Point, HashSet> connectors = new HashMap<Point, HashSet>();
+        Random rand = new Random();
 
         // Identifier les cells candidates à la connexion, c'est à dire :
         // - de type solide
@@ -252,34 +271,155 @@ public class Maze
                     HashSet<Integer> connectedRegions = new HashSet<Integer>();
 
                     for ( Direction direction : Direction.CARDINAL ) {
-                        int regionID = regions.getCell(col + direction.x, row + direction.y);
-                        if ( regionID != 0 ) {
-                            connectedRegions.add(new Integer(regionID));
+                        if ( dungeon.getCell(col + direction.x, row + direction.y) != 0 )
+                        {
+                            int id = regions.getCell(col + direction.x, row + direction.y);
+                            connectedRegions.add(new Integer(id));
                         }
                     }
 
                     if ( connectedRegions.size() >= 2 ) {
-                        connectorRegions.put(new Point(col, row), connectedRegions);
+                        connectors.put(new Point(col, row), connectedRegions);
+                        dungeon.setCell(col, row, 2);
+                        System.out.printf("Size = " + connectedRegions.size() + "\n");
+                        System.out.printf("Region = ");
+                        for ( Integer region : connectedRegions ) {
+                            System.out.printf(region.toString() + " ");
+                        }
+                        System.out.printf("\n");
                     }
                 }
             }
         }
 
+
+
         // Initialisation des buffer de track des ID des regions fusionnées et restantes
-        ArrayList<Integer> mergedRegions = new ArrayList<Integer>();
-        HashSet<Integer> remainingRegions = new HashSet<Integer>();
+        //ArrayList<Integer> mergedRegions = new ArrayList<Integer>(regionID + 1);
+        HashSet<Integer> remainingRegions = new HashSet<Integer>(regionID + 1);
         for ( int index = 0; index <= regionID; index++ ) {
-            mergedRegions.set(index, new Integer(index));
+            //mergedRegions.add(index, new Integer(index)); // FIXME : pourquoi ?
             remainingRegions.add(new Integer(index));
         }
 
+        /**
+         * 1- on selectionne au hasard un region dans la liste des remainingRegions qui servira de region de base dans laquelle toutes les autres serotn fusionnées
+         * tant qu'il y aplus d'une region a traiter
+         * 2- on liste l'ensemble des connecteurs possedant la region de base
+         * 3- on tire au sort un connecteur
+         * 4- on creuse le dongeon
+         * 5- on supprime tous les connecteurs ayant exactement comme regions celles du connecteur sélectionné pour creuser
+         * 5- on remap tous les connector possedant l'id de la region fusionnée avec l'id de la region de base
+         * 6- on supprime l'id de la region fusionné de la liste remainingRegions
+         */
+/*
+        // Selectionner au hasard la region qui servira de region de base pour fusionner toutes les autres
+        int regionIDRef = rand.nextInt(remainingRegions.size());
 
         // Connecter et fusionner les regions jusqu'à ce qu'il en reste qu'une seule
         while ( remainingRegions.size() > 1 ) {
-            
+            // Liste l'ensemble des connectors qui possèdent la region de référence
+            HashMap<Point, HashSet> selectedConnectors = new HashMap<Point, HashSet>();
+            Iterator entries = connectors.entrySet().iterator();
+            while (entries.hasNext())
+            {
+                Map.Entry entry = (Map.Entry)entries.next();
+                HashSet value = (HashSet)entry.getValue();
+
+                if ( value.contains(regionIDRef) ) { // FIXME : pas sur du test
+                    Point key = (Point)entry.getKey();
+                    selectedConnectors.put(key, value);
+                }
+            }
+
+            // Tirer au sort un connector
+            List<Point> connectorPoints = new ArrayList<Point>(selectedConnectors.keySet());
+            int connectorIndex = rand.nextInt(connectorPoints.size());
+            Point connectorPoint = connectorPoints.get(connectorIndex);
+
+            // Creuser la connection
+            carveJunction(connectorPoint.x, connectorPoint.y);
+
+            // Suppression des connecteurs ayant comme regions celles du connecteur sélectionné pour creuser
+            HashSet<Integer> regionsToMerge = connectors.get(connectorPoint);
+            entries = connectors.entrySet().iterator();
+            while (entries.hasNext())
+            {
+                Map.Entry entry = (Map.Entry)entries.next();
+                HashSet value = (HashSet)entry.getValue();
+
+                if ( value.containsAll(regionsToMerge) ) {
+                    entries.remove();
+                }
+            }
+
+            // Remap tous les connectors possedant l'id de la region fusionnée avec l'id de la region de référence
+            int regionIDToDelete = 0;
+            for ( Integer id : regionsToMerge ) {
+                if ( id != regionIDRef ) {
+                    regionIDToDelete = id;
+                    break;
+                }
+            }
+            entries = connectors.entrySet().iterator();
+            while (entries.hasNext())
+            {
+                Map.Entry entry = (Map.Entry)entries.next();
+                HashSet value = (HashSet)entry.getValue();
+
+                if ( value.contains(regionIDToDelete) ) {
+                    value.remove(regionIDToDelete);
+                    value.add(regionIDRef);
+                }
+            }
+*/
+            // Selectionner un connecteur au hasard
+            /*
+            List<Point> connectorPoints = new ArrayList<Point>(connectors.keySet());
+            int connectorIndex = rand.nextInt(connectorPoints.size());
+            Point connectorPoint = connectorPoints.get(connectorIndex);
+
+            // Creuser la connection
+            carveJunction(connectorPoint.x, connectorPoint.y);
+
+            // Fusionner les régions
+            HashSet<Integer> regionsToMerge = connectors.get(connectorPoint);
+
+            Object[] regionsID = regionsToMerge.toArray();
+            Integer regionIDToKeep = (Integer)regionsID[0];
+            Integer regionIDToDelete = (Integer)regionsID[1];
+
+            Iterator entries = connectors.entrySet().iterator();
+            while (entries.hasNext())
+            {
+                Map.Entry entry = (Map.Entry)entries.next();
+                HashSet value = (HashSet)entry.getValue();
+
+                // 2 cas de figures :
+                if ( value.containsAll(regionsToMerge) ) {
+                    // Supprimer tous les connectors communs des regions fusionnées
+                    entries.remove();
+                } else if ( value.contains(regionIDToDelete)) {
+                    // Remapper tous les connectors ayant l'id de la region supprimée par celui de la région avec laquelle elle a été fusionnée
+                    value.remove(regionIDToDelete);
+                    value.add(regionIDToKeep);
+                }
+            }
+            */
+/*
+            // Supprimer la région de la liste
+            remainingRegions.remove(regionIDToDelete);
         }
+*/
+    }
+
+    /**
+     *
+     */
+    void remodeDeadEnds() {
 
     }
+
     /**
      * Création d'un nouvel ID de région
      */

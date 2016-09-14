@@ -9,7 +9,7 @@ public class Runner
 {
     public static void main(String[] args)
     {
-        Maze maze = new Maze.MazeBuilder().bounds(new Dimension(63,63)).build();
+        Maze maze = new Maze.MazeBuilder().bounds(new Dimension(31,31)).build();
         maze.generate();
         maze.printAscii();
     }
