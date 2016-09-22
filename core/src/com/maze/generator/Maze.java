@@ -19,7 +19,7 @@ public class Maze
     private final int corridorStraightness;
 
     private ArrayList<Rectangle> rooms;
-    private Array2D regions; // Chaque cell est tagguée par l'id de la region dont la valuer [0, n]
+    private Array2D regions; // Chaque cell est tagguée par l'id de la region dont la valeur [0, n]
     private Array2D dungeon; // Chaque cell est tagguée par 0 ou 1 pour indiqué si la celle est pleine ou vide
 
     private int regionID = 0; // 0 est l'ID des murs (cell pleine)
@@ -50,7 +50,7 @@ public class Maze
         addRooms();
         addCorridors();
         connectRegions();
-
+        removeDeadEnds();
     }
 
     /**
@@ -277,9 +277,10 @@ public class Maze
      * @param x Position x de la jonction
      * @param y Position y de la jonction
      */
-    private void carveJunction(int x, int y) {
+    private void carveJunction(final int x, final int y, final int id) {
         // FIXME: c'est ici qu'on peut introduire des portes (ouvertes ou fermées), pièges, déclencheurs etc
-        dungeon.setCell(x, y, 1);
+        dungeon.setCell(x, y, 1); // une porte par exemple
+        regions.setCell(x, y, id);
     }
 
     /**
@@ -289,9 +290,10 @@ public class Maze
         HashMap<Point, HashSet> connectors = new HashMap<Point, HashSet>();
         Random rand = new Random();
 
-        // Identifier les cells candidates à la connexion, c'est à dire :
-        // - de type solide
+        // Identifier les cells candidates à la connexion (appelée connecteur) :
+        // - de type solide (attention, tous les connecteurs ont le même ID region (0))
         // - adjacente à 2 regions différentes
+        // Attention, on part du principe que la region d'ID = 0 à toutes ses cells à l'état 0 (CELL_FULL)
         for ( int row = 1; row < bounds.height - 1; row ++ ) {
             for ( int col = 1; col < bounds.width - 1; col++ ) {
                 if ( dungeon.getCell(col, row) == 0 ) {
@@ -305,46 +307,27 @@ public class Maze
                         }
                     }
 
-                    if ( connectedRegions.size() >= 2 ) {
+                    // Rappel, un connecteur ne peut relier que 2 regions à la fois !
+                    if ( connectedRegions.size() == 2 ) {
                         connectors.put(new Point(col, row), connectedRegions);
-                        dungeon.setCell(col, row, 2);
-                        System.out.printf("Size = " + connectedRegions.size() + "\n");
-                        System.out.printf("Region = ");
-                        for ( Integer region : connectedRegions ) {
-                            System.out.printf(region.toString() + " ");
-                        }
-                        System.out.printf("\n");
+                        // On change l'état de la cell pour le debug
+                        //dungeon.setCell(col, row, 2);
                     }
                 }
             }
         }
 
-
-
-        // Initialisation des buffer de track des ID des regions fusionnées et restantes
-        //ArrayList<Integer> mergedRegions = new ArrayList<Integer>(regionID + 1);
+        // Initialisation du buffer de track des ID des regions restantes
         HashSet<Integer> remainingRegions = new HashSet<Integer>(regionID + 1);
         for ( int index = 0; index <= regionID; index++ ) {
-            //mergedRegions.add(index, new Integer(index)); // FIXME : pourquoi ?
             remainingRegions.add(new Integer(index));
         }
 
-        /**
-         * 1- on selectionne au hasard un region dans la liste des remainingRegions qui servira de region de base dans laquelle toutes les autres serotn fusionnées
-         * tant qu'il y aplus d'une region a traiter
-         * 2- on liste l'ensemble des connecteurs possedant la region de base
-         * 3- on tire au sort un connecteur
-         * 4- on creuse le dongeon
-         * 5- on supprime tous les connecteurs ayant exactement comme regions celles du connecteur sélectionné pour creuser
-         * 5- on remap tous les connector possedant l'id de la region fusionnée avec l'id de la region de base
-         * 6- on supprime l'id de la region fusionné de la liste remainingRegions
-         */
-/*
         // Selectionner au hasard la region qui servira de region de base pour fusionner toutes les autres
         int regionIDRef = rand.nextInt(remainingRegions.size());
 
-        // Connecter et fusionner les regions jusqu'à ce qu'il en reste qu'une seule
-        while ( remainingRegions.size() > 1 ) {
+        // Connecter et fusionner les regions jusqu'à ce qu'il en reste que 2, la région de référence et la région d'ID = 0
+        while ( remainingRegions.size() > 2 ) {
             // Liste l'ensemble des connectors qui possèdent la region de référence
             HashMap<Point, HashSet> selectedConnectors = new HashMap<Point, HashSet>();
             Iterator entries = connectors.entrySet().iterator();
@@ -353,7 +336,7 @@ public class Maze
                 Map.Entry entry = (Map.Entry)entries.next();
                 HashSet value = (HashSet)entry.getValue();
 
-                if ( value.contains(regionIDRef) ) { // FIXME : pas sur du test
+                if ( value.contains(regionIDRef) ) {
                     Point key = (Point)entry.getKey();
                     selectedConnectors.put(key, value);
                 }
@@ -365,7 +348,7 @@ public class Maze
             Point connectorPoint = connectorPoints.get(connectorIndex);
 
             // Creuser la connection
-            carveJunction(connectorPoint.x, connectorPoint.y);
+            carveJunction(connectorPoint.x, connectorPoint.y, regionIDRef);
 
             // Suppression des connecteurs ayant comme regions celles du connecteur sélectionné pour creuser
             HashSet<Integer> regionsToMerge = connectors.get(connectorPoint);
@@ -399,7 +382,7 @@ public class Maze
                     value.add(regionIDRef);
                 }
             }
-*/
+
             // Selectionner un connecteur au hasard
             /*
             List<Point> connectorPoints = new ArrayList<Point>(connectors.keySet());
@@ -433,18 +416,49 @@ public class Maze
                 }
             }
             */
-/*
-            // Supprimer la région de la liste
+
+            // Supprimer la région fusionnée de la liste
             remainingRegions.remove(regionIDToDelete);
         }
-*/
     }
 
     /**
-     *
+     * Supprimer les culs de sac par "rebouchage"
+     * Au moins 2 passes sont nécessaire
      */
-    private void remodeDeadEnds() {
+    private void removeDeadEnds() {
+        boolean done = false;
 
+        while ( !done ) {
+            done = true;
+
+            for ( int row = 1; row < bounds.height - 1; row ++ ) {
+                for ( int col = 1; col < bounds.width - 1; col++ ) {
+                    // Pour chaque cell de type CELL_EMPTY
+                    if ( dungeon.getCell(col, row) == 1 ) {
+                        int numExits = 0;
+
+                        // Déterminer le nombre de CELL_FULL adjacente
+                        for ( Direction direction : Direction.CARDINAL ) {
+                            if ( dungeon.getCell(col + direction.x, row + direction.y) == 0 )
+                            {
+                                numExits++;
+                            }
+                        }
+
+                        // 3 cells pleine qui entourent une cell vide = deadend
+                        if ( numExits == 3 )
+                        {
+                            done = false; // Une nouvelle passe est nécessaire
+
+                            // On rebouche la cellule
+                            // FIXME : et l'ID de regions ?
+                            dungeon.setCell(col, row, 0);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**
