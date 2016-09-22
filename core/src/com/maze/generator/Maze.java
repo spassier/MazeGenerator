@@ -17,6 +17,7 @@ public class Maze
     private final int minRoomSize;
     private final int numRoomPositioningTries;
     private final int corridorStraightness;
+    private final int extraConnectorChance;
 
     private ArrayList<Rectangle> rooms;
     private Array2D regions; // Chaque cell est tagguée par l'id de la region dont la valeur [0, n]
@@ -34,6 +35,7 @@ public class Maze
         this.minRoomSize = builder.minRoomSize;
         this.numRoomPositioningTries = builder.numRoomPositioningTries;
         this.corridorStraightness = builder.corridorStraightness;
+        this.extraConnectorChance = builder.extraConnectorChance;
 
         this.rooms = new ArrayList<Rectangle>();
         this.regions = new Array2D(this.bounds.width, this.bounds.height);
@@ -195,7 +197,7 @@ public class Maze
 
     /**
      * Determine si un corridor peut être creusé depuis une cell à une position (x,y) vers une cell adjacent selon une direction
-     * Le creusement se fait par pas de 2 cell pour garantir un espace entre les corridors
+     * Le creusement se fait par pas de 2 cells pour garantir un espace entre les corridors
      * @param x Position x du corridor
      * @param y Position y du corridor
      * @param direction Direction du creusement souhaité
@@ -347,8 +349,24 @@ public class Maze
             int connectorIndex = rand.nextInt(connectorPoints.size());
             Point connectorPoint = connectorPoints.get(connectorIndex);
 
-            // Creuser la connection
+            // Creuser la connexion
             carveJunction(connectorPoint.x, connectorPoint.y, regionIDRef);
+
+            // Donne une chance de creuser une autre connexion
+            if ( rand.nextInt(100) < extraConnectorChance ) {
+                boolean done = false;
+
+                while ( !done )
+                {
+                    int extraConnectorIndex = rand.nextInt(connectorPoints.size());
+                    Point extraConnectorPoint = connectorPoints.get(extraConnectorIndex);
+                    // On s'assure que la nouvelle connexion n'est pas acollée à celle déjà créee
+                    if ( extraConnectorPoint.distance(connectorPoint) >= 2 ) {
+                        carveJunction(extraConnectorPoint.x, extraConnectorPoint.y, regionIDRef);
+                        done = true;
+                    }
+                }
+            }
 
             // Suppression des connecteurs ayant comme regions celles du connecteur sélectionné pour creuser
             HashSet<Integer> regionsToMerge = connectors.get(connectorPoint);
@@ -478,7 +496,7 @@ public class Maze
         private int minRoomSize = 3;
         private int numRoomPositioningTries = 100;
         private int corridorStraightness = 50;
-
+        private int extraConnectorChance = 25; // %
 
         public MazeBuilder() {}
 
@@ -486,7 +504,7 @@ public class Maze
             return new Maze(this);
         }
 
-        public MazeBuilder bounds(Dimension bounds) {
+        public MazeBuilder bounds(final Dimension bounds) {
             if ( bounds.getWidth() % 2 == 0 || bounds.getHeight() % 2 == 0 ) {
                 throw new IllegalArgumentException("Odd values only");
             }
@@ -496,7 +514,7 @@ public class Maze
             return this;
         }
 
-        public MazeBuilder bounds(int width, int height) {
+        public MazeBuilder bounds(final int width, final int height) {
             if ( width % 2 == 0 || height % 2 == 0 ) {
                 throw new IllegalArgumentException("Odd values only");
             }
@@ -507,26 +525,41 @@ public class Maze
             return this;
         }
 
-        public MazeBuilder maxRoomSize(int value) {
+        public MazeBuilder maxRoomSize(final int value) {
             this.maxRoomSize = value;
 
             return this;
         }
 
-        public MazeBuilder minRoomSize(int value) {
+        public MazeBuilder minRoomSize(final int value) {
             this.minRoomSize = value;
 
             return this;
         }
 
-        public MazeBuilder numRoomPositioningTries(int value) {
+        public MazeBuilder numRoomPositioningTries(final int value) {
             this.numRoomPositioningTries = value;
 
             return this;
         }
 
-        public MazeBuilder corridorStraightness(int value) {
+        public MazeBuilder corridorStraightness(final int value) {
+            if ( value < 0 || value > 100 ) {
+                throw new IllegalArgumentException("[0, 100] values range only");
+            }
+
             this.corridorStraightness = value;
+
+            return this;
+        }
+
+        public MazeBuilder extraConnectorChance(final int value)
+        {
+            if ( value < 0 || value > 100 ) {
+                throw new IllegalArgumentException("[0, 100] values range only");
+            }
+
+            this.extraConnectorChance = value;
 
             return this;
         }
