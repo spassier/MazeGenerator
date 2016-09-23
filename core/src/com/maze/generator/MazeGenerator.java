@@ -32,7 +32,7 @@ public class MazeGenerator extends ApplicationAdapter {
 
 		// Constructs a new OrthographicCamera, using the given viewport width and height
 		// Height is multiplied by aspect ratio.
-		camera = new OrthographicCamera(512 - 16 , (512 - 16) * (h / w));
+		camera = new OrthographicCamera(1024 - 32 , (1024 - 32) * (h / w));
 		camera.setToOrtho(true, Gdx.graphics.getWidth(), Gdx.graphics.getHeight()); // Inversion de l'axe y
 		// FIXME : If you use TextureRegions and/or a TextureAtlas, all you need to do in addition to that is call region.flip(false, true).
 		camera.position.set(camera.viewportWidth / 2f, camera.viewportHeight / 2f, 0);
@@ -74,7 +74,7 @@ public class MazeGenerator extends ApplicationAdapter {
 	}
 
 	void initMaze() {
-		this.maze = new Maze.MazeBuilder().bounds(new Dimension(31,31)).build();
+		this.maze = new Maze.MazeBuilder().build();//new Maze.MazeBuilder().bounds(new Dimension(31,31)).build();
 		maze.generate();
 		maze.printAscii();
 	}

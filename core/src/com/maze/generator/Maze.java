@@ -1,5 +1,9 @@
 package com.maze.generator;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.files.FileHandle;
+import com.google.gson.Gson;
+import com.google.gson.stream.JsonReader;
 import com.maze.common.Array2D;
 import com.maze.common.Direction;
 
@@ -7,11 +11,14 @@ import java.awt.*;
 import java.util.*;
 import java.util.List;
 
+
 /**
  * Created by Sebastien PASSIER on 27/02/2016.
  */
 public class Maze
 {
+    private DungeonCustomizer customizer;
+
     private final Dimension bounds;
     private final int maxRoomSize;
     private final int minRoomSize;
@@ -30,19 +37,21 @@ public class Maze
 
 
     private Maze(MazeBuilder builder) {
-        this.bounds = builder.bounds;
-        this.maxRoomSize = builder.maxRoomSize;
-        this.minRoomSize = builder.minRoomSize;
-        this.numRoomPositioningTries = builder.numRoomPositioningTries;
-        this.corridorStraightness = builder.corridorStraightness;
-        this.extraConnectorChance = builder.extraConnectorChance;
+        this.customizer = builder.customizer;
+
+        this.bounds = builder.customizer.getBounds();//builder.bounds;
+        this.maxRoomSize = builder.customizer.getMaxRoomSize();
+        this.minRoomSize = builder.customizer.getMinRoomSize();
+        this.numRoomPositioningTries = builder.customizer.getNumRoomPositioningTries();
+        this.corridorStraightness = builder.customizer.getCorridorStraightness();
+        this.extraConnectorChance = builder.customizer.getExtraConnectorChance();
 
         this.rooms = new ArrayList<Rectangle>();
-        this.regions = new Array2D(this.bounds.width, this.bounds.height);
+        this.regions = new Array2D(this.bounds.width, this.bounds.height); // TODO : A flush car ne sert que pour la construction du dungeon ou a placer en local d'une methode
         this.dungeon = new Array2D(this.bounds.width, this.bounds.height);
 
-        this.width = this.bounds.width;
-        this.height = this.bounds.height;
+        this.width =  customizer.getBounds().width;
+        this.height = customizer.getBounds().height;
     }
 
     /**
@@ -111,10 +120,11 @@ public class Maze
     /**
      * Ajouter des corridors dans les espaces restants
      * Implementation de l'algorithmes "flood fill" src: http://www.astrolog.org/labyrnth/algrithm.htm
+     * Pour des raisons pratiques les corridors sont crées uniquement dans les lignes et les colonnes impaires
      */
     private void addCorridors() {
-        for ( int row = 1; row < bounds.height; row += 2 ) {
-            for ( int col = 1; col < bounds.width; col += 2 ) {
+        for ( int row = 1; row < customizer.getBounds().height; row += 2 ) {
+            for ( int col = 1; col < customizer.getBounds().width; col += 2 ) {
                 if ( dungeon.getCell(col, row) == 0 ) {
                     carveCorridor(col, row);
                 }
@@ -123,7 +133,7 @@ public class Maze
     }
 
     /**
-     * Ajouter des rooms disjointes les unes des autres
+     * Ajouter des rooms dont les dimensions sont aléatoires et disjointes les unes des autres
      * L'objectif est double:
      *      1 - Garantir que les tailles des rooms est impaire (width et height)
      *      2 - Aligner les positions des rooms uniquement sur des position impaires (row et col)
@@ -133,8 +143,8 @@ public class Maze
 
         for ( int iteration = 0; iteration < numRoomPositioningTries; iteration++ ) {
             // Calcul de la largeur et de la hauteur de la room
-            int width = rand.nextInt(maxRoomSize - minRoomSize + 1) + minRoomSize;
-            int height = rand.nextInt(maxRoomSize - minRoomSize + 1) + minRoomSize;
+            int roomWidth = rand.nextInt(maxRoomSize - minRoomSize + 1) + minRoomSize;
+            int roomHeight = rand.nextInt(maxRoomSize - minRoomSize + 1) + minRoomSize;
 
             // Pour ajouter de l'aléatoire dans le redimentionnement de la largeur ou de la longueure lorsque la valeur est paire
             int lessOrMore;
@@ -145,27 +155,27 @@ public class Maze
             }
 
             // Traitement des cas aux limites du redimentionnement
-            if ( (width & 1) == 0 ) {
-                if ( (width + lessOrMore) <= maxRoomSize ) {
-                    width++;
+            if ( (roomWidth & 1) == 0 ) {
+                if ( (roomWidth + lessOrMore) <= maxRoomSize ) {
+                    roomWidth++;
                 } else {
-                    width--;
+                    roomWidth--;
                 }
             }
 
-            if ( (height & 1) == 0 ) {
-                if ( (height + lessOrMore) <= maxRoomSize ) {
-                    height++;
+            if ( (roomHeight & 1) == 0 ) {
+                if ( (roomHeight + lessOrMore) <= maxRoomSize ) {
+                    roomHeight++;
                 } else {
-                    height--;
+                    roomHeight--;
                 }
             }
 
             // Calcul de la position de la room
-            int x = rand.nextInt((bounds.width - width) / 2) * 2 + 1;
-            int y = rand.nextInt((bounds.height - height) / 2) * 2 + 1;
+            int x = rand.nextInt((width - roomWidth) / 2) * 2 + 1;
+            int y = rand.nextInt((height - roomHeight) / 2) * 2 + 1;
 
-            Rectangle room = new Rectangle(x, y, width, height);
+            Rectangle room = new Rectangle(x, y, roomWidth, roomHeight);
 
             // La room est insérée uniquement si elle est disjointe des autres
             Rectangle bounds = new Rectangle(room.x - 1, room.y - 1, room.width + 1, room.height + 1);
@@ -182,6 +192,8 @@ public class Maze
                 rooms.add(room);
 
                 // Creuse une nouvelle région
+                carveRegion(room);
+                /*
                 newRegion();
                 for (int row = room.y; row < room.y + room.height; row++)
                 {
@@ -191,6 +203,7 @@ public class Maze
                         dungeon.setCell(col, row, 1);
                     }
                 }
+                */
             }
         }
     }
@@ -286,6 +299,23 @@ public class Maze
     }
 
     /**
+     * Creuser une region
+     * @param room Rectangle définissant une room
+     */
+    private void carveRegion(final Rectangle room) {
+        newRegion();
+
+        for ( int row = room.y; row < room.y + room.height; row++ )
+        {
+            for ( int col = room.x; col < room.x + room.width; col++ )
+            {
+                regions.setCell(col, row, regionID);
+                dungeon.setCell(col, row, 1);
+            }
+        }
+    }
+
+    /**
      *
      */
     private void connectRegions() {
@@ -353,6 +383,7 @@ public class Maze
             carveJunction(connectorPoint.x, connectorPoint.y, regionIDRef);
 
             // Donne une chance de creuser une autre connexion
+            // FIXME : cette partie provoque un bug avec des connecteur acollé.
             if ( rand.nextInt(100) < extraConnectorChance ) {
                 boolean done = false;
 
@@ -361,7 +392,8 @@ public class Maze
                     int extraConnectorIndex = rand.nextInt(connectorPoints.size());
                     Point extraConnectorPoint = connectorPoints.get(extraConnectorIndex);
                     // On s'assure que la nouvelle connexion n'est pas acollée à celle déjà créee
-                    if ( extraConnectorPoint.distance(connectorPoint) >= 2 ) {
+                    if ( Math.abs(extraConnectorPoint.x - connectorPoint.x) >= 2 || Math.abs(extraConnectorPoint.y - connectorPoint.y) > 2 ) {
+                    //if ( Math.round(extraConnectorPoint.distance(connectorPoint)) >= 2 ) {
                         carveJunction(extraConnectorPoint.x, extraConnectorPoint.y, regionIDRef);
                         done = true;
                     }
@@ -491,75 +523,57 @@ public class Maze
      */
     public static class MazeBuilder
     {
-        private Dimension bounds;
-        private int maxRoomSize = 11;
-        private int minRoomSize = 3;
-        private int numRoomPositioningTries = 100;
-        private int corridorStraightness = 50;
-        private int extraConnectorChance = 25; // %
+        private DungeonCustomizer customizer;
 
-        public MazeBuilder() {}
+
+        public MazeBuilder() {
+            customizer = new DungeonCustomizer();
+
+            if ( Gdx.files.internal("dungeon.cfg").exists() )
+            {
+                FileHandle file = Gdx.files.internal("dungeon.cfg");
+                JsonReader reader = new JsonReader(file.reader());
+                customizer = new Gson().fromJson(reader, DungeonCustomizer.class);
+            }
+        }
 
         public Maze build() {
             return new Maze(this);
         }
 
         public MazeBuilder bounds(final Dimension bounds) {
-            if ( bounds.getWidth() % 2 == 0 || bounds.getHeight() % 2 == 0 ) {
-                throw new IllegalArgumentException("Odd values only");
-            }
-
-            this.bounds = bounds;
-
-            return this;
-        }
-
-        public MazeBuilder bounds(final int width, final int height) {
-            if ( width % 2 == 0 || height % 2 == 0 ) {
-                throw new IllegalArgumentException("Odd values only");
-            }
-
-            this.bounds.width = width;
-            this.bounds.height = height;
+            this.customizer.setBounds(bounds);
 
             return this;
         }
 
         public MazeBuilder maxRoomSize(final int value) {
-            this.maxRoomSize = value;
+            this.customizer.setMaxRoomSize(value);
 
             return this;
         }
 
         public MazeBuilder minRoomSize(final int value) {
-            this.minRoomSize = value;
+            this.customizer.setMinRoomSize(value);
 
             return this;
         }
 
         public MazeBuilder numRoomPositioningTries(final int value) {
-            this.numRoomPositioningTries = value;
+            this.customizer.setNumRoomPositioningTries(value);
 
             return this;
         }
 
         public MazeBuilder corridorStraightness(final int value) {
-            if ( value < 0 || value > 100 ) {
-                throw new IllegalArgumentException("[0, 100] values range only");
-            }
-
-            this.corridorStraightness = value;
+            this.customizer.setCorridorStraightness(value);
 
             return this;
         }
 
         public MazeBuilder extraConnectorChance(final int value)
         {
-            if ( value < 0 || value > 100 ) {
-                throw new IllegalArgumentException("[0, 100] values range only");
-            }
-
-            this.extraConnectorChance = value;
+            this.customizer.setExtraConnectorChance(value);
 
             return this;
         }

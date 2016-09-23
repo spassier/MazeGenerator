@@ -48,6 +48,7 @@ project(":core") {
 
     dependencies {
         compile "com.badlogicgames.gdx:gdx:$gdxVersion"
+        compile "com.google.code.gson:gson:2.7"
     }
 }
 
