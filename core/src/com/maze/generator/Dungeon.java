@@ -15,7 +15,7 @@ import java.util.List;
 /**
  * Created by Sebastien PASSIER on 27/02/2016.
  */
-public class Maze
+public class Dungeon
 {
     private DungeonCustomizer customizer;
 
@@ -36,7 +36,7 @@ public class Maze
     public int height;
 
 
-    private Maze(MazeBuilder builder) {
+    private Dungeon(DungeonBuilder builder) {
         this.customizer = builder.customizer;
 
         this.bounds = builder.customizer.getBounds();//builder.bounds;
@@ -379,29 +379,42 @@ public class Maze
             int connectorIndex = rand.nextInt(connectorPoints.size());
             Point connectorPoint = connectorPoints.get(connectorIndex);
 
+            // Liste les ID des 2 régions à fusionner
+            HashSet<Integer> regionsToMerge = connectors.get(connectorPoint);
+
             // Creuser la connexion
             carveJunction(connectorPoint.x, connectorPoint.y, regionIDRef);
 
-            // Donne une chance de creuser une autre connexion
-            // FIXME : cette partie provoque un bug avec des connecteur acollé.
+            // Donne une chance de creuser une autre connexion POUR LE MËME COUPLE DE REGION
             if ( rand.nextInt(100) < extraConnectorChance ) {
                 boolean done = false;
 
                 while ( !done )
                 {
-                    int extraConnectorIndex = rand.nextInt(connectorPoints.size());
-                    Point extraConnectorPoint = connectorPoints.get(extraConnectorIndex);
-                    // On s'assure que la nouvelle connexion n'est pas acollée à celle déjà créee
-                    if ( Math.abs(extraConnectorPoint.x - connectorPoint.x) >= 2 || Math.abs(extraConnectorPoint.y - connectorPoint.y) > 2 ) {
-                    //if ( Math.round(extraConnectorPoint.distance(connectorPoint)) >= 2 ) {
-                        carveJunction(extraConnectorPoint.x, extraConnectorPoint.y, regionIDRef);
-                        done = true;
+                    int maxTries = 32;
+                    Point extraConnectorPoint;
+
+                    // La sélection du connector est faite aléatoirement et pour ne pas être bloqué dans une boucle infinie le nombre de tentatives est limité
+                    while ( maxTries > 0 ) {
+                        int extraConnectorIndex = rand.nextInt(connectorPoints.size());
+                        extraConnectorPoint = connectorPoints.get(extraConnectorIndex);
+
+                        // La technique est un peu lourde car on creuse une connexion pour le même couple de region à fusionner alors que la région peut avoir des connectors avec d'autres régions.
+                        // Si on ne fait pas comme ça il est possible que les passes suivantes creusent un connector adjacent...
+                        if ( selectedConnectors.get(extraConnectorPoint).containsAll(regionsToMerge) ) {
+                            // On s'assure que la nouvelle connexion n'est pas acollée à celle déjà créee
+                            if ( Math.abs(extraConnectorPoint.x - connectorPoint.x) >= 2 || Math.abs(extraConnectorPoint.y - connectorPoint.y) >= 2 ) {
+                                carveJunction(extraConnectorPoint.x, extraConnectorPoint.y, regionIDRef);
+                                done = true;
+                            }
+                            break;
+                        }
+                        maxTries--;
                     }
                 }
             }
 
             // Suppression des connecteurs ayant comme regions celles du connecteur sélectionné pour creuser
-            HashSet<Integer> regionsToMerge = connectors.get(connectorPoint);
             entries = connectors.entrySet().iterator();
             while (entries.hasNext())
             {
@@ -521,12 +534,12 @@ public class Maze
     /**
      * Class builder
      */
-    public static class MazeBuilder
+    public static class DungeonBuilder
     {
         private DungeonCustomizer customizer;
 
 
-        public MazeBuilder() {
+        public DungeonBuilder() {
             customizer = new DungeonCustomizer();
 
             if ( Gdx.files.internal("dungeon.cfg").exists() )
@@ -537,41 +550,41 @@ public class Maze
             }
         }
 
-        public Maze build() {
-            return new Maze(this);
+        public Dungeon build() {
+            return new Dungeon(this);
         }
 
-        public MazeBuilder bounds(final Dimension bounds) {
+        public DungeonBuilder bounds(final Dimension bounds) {
             this.customizer.setBounds(bounds);
 
             return this;
         }
 
-        public MazeBuilder maxRoomSize(final int value) {
+        public DungeonBuilder maxRoomSize(final int value) {
             this.customizer.setMaxRoomSize(value);
 
             return this;
         }
 
-        public MazeBuilder minRoomSize(final int value) {
+        public DungeonBuilder minRoomSize(final int value) {
             this.customizer.setMinRoomSize(value);
 
             return this;
         }
 
-        public MazeBuilder numRoomPositioningTries(final int value) {
+        public DungeonBuilder numRoomPositioningTries(final int value) {
             this.customizer.setNumRoomPositioningTries(value);
 
             return this;
         }
 
-        public MazeBuilder corridorStraightness(final int value) {
+        public DungeonBuilder corridorStraightness(final int value) {
             this.customizer.setCorridorStraightness(value);
 
             return this;
         }
 
-        public MazeBuilder extraConnectorChance(final int value)
+        public DungeonBuilder extraConnectorChance(final int value)
         {
             this.customizer.setExtraConnectorChance(value);
 

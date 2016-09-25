@@ -8,12 +8,10 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
-import java.awt.*;
-
 
 public class MazeGenerator extends ApplicationAdapter {
 	private final int CELL_SIZE = 16;
-	private Maze maze;
+	private Dungeon maze;
 	private OrthographicCamera camera;
 
 	SpriteBatch batch;
@@ -74,7 +72,7 @@ public class MazeGenerator extends ApplicationAdapter {
 	}
 
 	void initMaze() {
-		this.maze = new Maze.MazeBuilder().build();//new Maze.MazeBuilder().bounds(new Dimension(31,31)).build();
+		this.maze = new Dungeon.DungeonBuilder().build();//new Dungeon.MazeBuilder().bounds(new Dimension(31,31)).build();
 		maze.generate();
 		maze.printAscii();
 	}
